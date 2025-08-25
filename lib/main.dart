@@ -8,6 +8,7 @@ import 'package:myapp/screens/registration_screen.dart';
 import 'package:myapp/screens/authentication_screen.dart'; // Import authentication screen
 import 'package:myapp/screens/home_page.dart'; // Import HomePage
 import 'package:myapp/screens/create_activity_screen.dart'; // Import create activity screen
+import 'package:myapp/screens/activity_detail_screen.dart'; // Import activity detail screen
 
 void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -42,6 +43,10 @@ class MyApp extends StatelessWidget {
         '/registration': (context) => const RegistrationScreen(),
         '/create_activity': (context) => const CreateActivityScreen(),
         '/authentication': (context) => const AuthenticationScreen(), // Add authentication route
+        '/activity_detail': (context) {
+          final activityId = ModalRoute.of(context)!.settings.arguments as String;
+          return ActivityDetailScreen(activityId: activityId);
+        },
       },
     );
   }

@@ -114,8 +114,6 @@ class _EmergencyContactSettingsScreenState
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('保存紧急联系人失败：$e')),
-
-          SnackBar(content: Text('保存紧急联系人失败: ${e.toString()}')), // More specific error
         );
       } finally {
         setState(() {
@@ -197,7 +195,7 @@ class _EmergencyContactSettingsScreenState
                         onPressed: _isLoading ? null : _saveEmergencyContacts,
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                        child: const Text('保存'),
+                            : const Text('保存'),
                       );
                     }
                   },

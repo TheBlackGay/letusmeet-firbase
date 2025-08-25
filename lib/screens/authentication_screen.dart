@@ -33,15 +33,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                isLogin ? const LoginScreen() : const RegistrationScreen(),
+                _isLogin ? const LoginScreen() : const RegistrationScreen(),
                 TextButton(
                   onPressed: () {
-                    _isLogin.value = !isLogin; // Toggle between login and registration
                     setState(() {
- _isLogin = !_isLogin;
+                      _isLogin = !_isLogin;
                     });
                   },
-                  child: Text(isLogin ? '没有账号？注册' : '已有账号？登录'),
+                  child: Text(_isLogin ? '没有账号？注册' : '已有账号？登录'),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(

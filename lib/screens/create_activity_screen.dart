@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
+
 class CreateActivityScreen extends StatefulWidget {
   const CreateActivityScreen({super.key});
 
   @override
   _CreateActivityScreenState createState() => _CreateActivityScreenState();
 }
-
 
 class _CreateActivityScreenState extends State<CreateActivityScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -25,6 +24,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   String? _selectedActivityType;
   bool _isLoading = false;
 
+  final List<String> _activityTypes = [
+    '户外运动',
+    '聚餐聚会',
+    '文化艺术',
+    '学习交流',
+    '旅游出行',
+    '其他',
+  ];
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -40,7 +48,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -61,19 +69,40 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
+  Future<void> _selectEndDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedEndDate ?? _selectedDate ?? DateTime.now(),
+      firstDate: _selectedDate ?? DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != _selectedEndDate) {
+      setState(() {
+        _selectedEndDate = picked;
+      });
+    }
+  }
+
+  Future<void> _selectEndTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedEndTime ?? TimeOfDay.now(),
+    );
+    if (picked != null && picked != _selectedEndTime) {
+      setState(() {
+        _selectedEndTime = picked;
+      });
+    }
+  }
+
   Future<void> _publishActivity() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-     if (_selectedDate == null || _selectedTime == null || _selectedEndDate == null || _selectedEndTime == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择活动日期和时间 범위')),
-      );
-    }
-     if (_selectedDate == null || _selectedTime == null) {
 
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择活动日期和时间')),
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请选择活动开始时间')),
       );
       return;
     }
@@ -83,52 +112,60 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     });
 
     try {
-       final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser == null) {
-          // Handle case where user is not logged in
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('用户未登录，无法发布活动')),
-          );
-          return;
-        }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先登录')),
+        );
+        return;
+      }
+
+      // Combine date and time
+      final startDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
+      DateTime? endDateTime;
+      if (_selectedEndDate != null && _selectedEndTime != null) {
+        endDateTime = DateTime(
+          _selectedEndDate!.year,
+          _selectedEndDate!.month,
+          _selectedEndDate!.day,
+          _selectedEndTime!.hour,
+          _selectedEndTime!.minute,
+        );
+      }
+
+      // Create activity document
       await FirebaseFirestore.instance.collection('activities').add({
-        'title': _titleController.text,
-        'location': _locationController.text,
-        'description': _descriptionController.text,
-        'type': _selectedActivityType,
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'location': _locationController.text.trim(),
+        'activityType': _selectedActivityType,
         'maxParticipants': int.tryParse(_maxParticipantsController.text) ?? 0,
         'cost': double.tryParse(_costController.text) ?? 0.0,
-         'startTime': DateTime(
-          _selectedDate!.year,
-          _selectedDate!.month,
-          _selectedDate!.day,
-          _selectedTime!.hour,
-          _selectedTime!.minute,
-        ),
- 'endTime': DateTime(
- _selectedEndDate!.year,
- _selectedEndDate!.month,
- _selectedEndDate!.day,
- _selectedEndTime!.hour,
- _selectedEndTime!.minute,
- ),
-        'organizerId': currentUser.uid,
+        'startTime': Timestamp.fromDate(startDateTime),
+        'endTime': endDateTime != null ? Timestamp.fromDate(endDateTime) : null,
+        'organizerId': user.uid,
         'currentParticipantsCount': 0,
-        'status': 'upcoming',
-        'coverImageUrl': '', // Placeholder for image URL
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'active',
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
- const SnackBar(content: Text('活动发布成功！')),
- );
-      Navigator.pop(context); // Navigate back after successful publishing
+        const SnackBar(content: Text('活动发布成功！')),
+      );
+
+      Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) {
- ScaffoldMessenger.of(context).showSnackBar(
- SnackBar(content: Text('发布活动失败：${e.toString()}')),
- );
-      }
+      print('Error publishing activity: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('发布失败，请重试')),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -140,304 +177,221 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('发布新活动'),
+        title: const Text('发布活动'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Activity Title
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: '活动标题',
-                  hintText: '请输入活动标题',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '活动标题不能为空';
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入活动标题';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 16),
+
+              // Activity Type
               DropdownButtonFormField<String>(
+                initialValue: _selectedActivityType,
                 decoration: const InputDecoration(
                   labelText: '活动类型',
                   border: OutlineInputBorder(),
                 ),
-                initialValue: _selectedActivityType,
-                hint: const Text('请选择活动类型'),
-                items: ['聚餐', '运动', '桌游', '其他']
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
-                onChanged: (value) {
+                items: _activityTypes.map((String type) {
+                  return DropdownMenuItem<String>(
+                    value: type,
+                    child: Text(type),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
                   setState(() {
-                    _selectedActivityType = value;
+                    _selectedActivityType = newValue;
                   });
                 },
-                // validator is handled before calling _publishActivity
+                validator: (value) {
+                  if (value == null) {
+                    return '请选择活动类型';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 16.0),
-              // Date Picker
-              ListTile(
-                leading: const Icon(Icons.calendar_today),
-                title: Text(_selectedDate == null
-                    ? '选择活动日期'
-                    : '活动日期: ${_selectedDate!.toLocal().toString().split(' ')[0]}'),
-                onTap: () => _selectDate(context),
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4.0),
-                ),
+              const SizedBox(height: 16),
+
+              // Start Date and Time
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectDate(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '开始日期',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _selectedDate != null
+                              ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+                              : '选择日期',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectTime(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '开始时间',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _selectedTime != null
+                              ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                              : '选择时间',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16.0),
-              // Time Picker
-              ListTile(
-                leading: const Icon(Icons.access_time),
-                title: Text(_selectedTime == null
-                    ? '选择活动时间'
-                    : '活动时间: ${_selectedTime!.format(context)}'),
-                onTap: () => _selectTime(context),
-                 shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4.0),
-                ),
+              const SizedBox(height: 16),
+
+              // End Date and Time (Optional)
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectEndDate(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '结束日期（可选）',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _selectedEndDate != null
+                              ? '${_selectedEndDate!.year}-${_selectedEndDate!.month.toString().padLeft(2, '0')}-${_selectedEndDate!.day.toString().padLeft(2, '0')}'
+                              : '选择日期',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectEndTime(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '结束时间（可选）',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _selectedEndTime != null
+                              ? '${_selectedEndTime!.hour.toString().padLeft(2, '0')}:${_selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                              : '选择时间',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16.0),
-              // End Date Picker
-              ListTile(
- leading: const Icon(Icons.calendar_today),
- title: Text(_selectedEndDate == null
- ? '选择活动结束日期'
- : '活动结束日期: ${_selectedEndDate!.toLocal().toString().split(' ')[0]}'),
- onTap: () => _selectEndDate(context),
- shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
- borderRadius: BorderRadius.circular(4.0),
-                ),
-              ),
-              const SizedBox(height: 16.0),
-              // End Time Picker
-              ListTile(
- leading: const Icon(Icons.access_time),
- title: Text(_selectedEndTime == null
- ? '选择活动结束时间'
- : '活动结束时间: ${_selectedEndTime!.format(context)}'),
- onTap: () => _selectEndTime(context),
- shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade400),
- borderRadius: BorderRadius.circular(4.0),
-                ),
-              ),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 16),
+
+              // Location
               TextFormField(
                 controller: _locationController,
                 decoration: const InputDecoration(
                   labelText: '活动地点',
-                  hintText: '请输入活动地点',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '活动地点不能为空';
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入活动地点';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16.0),
-               TextFormField(
+              const SizedBox(height: 16),
+
+              // Max Participants
+              TextFormField(
                 controller: _maxParticipantsController,
+                decoration: const InputDecoration(
+                  labelText: '最大参与人数',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '参与人数上限',
-                  hintText: '请输入参与人数上限',
-                  border: OutlineInputBorder(),
-                ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '参与人数上限不能为空';
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入最大参与人数';
                   }
-                  if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                    return '请输入有效的参与人数上限';
+                  final number = int.tryParse(value);
+                  if (number == null || number <= 0) {
+                    return '请输入有效的人数';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16.0),
-               TextFormField(
+              const SizedBox(height: 16),
+
+              // Cost
+              TextFormField(
                 controller: _costController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: '费用',
-                  hintText: '请输入活动费用 (可选)',
+                  labelText: '活动费用（元）',
                   border: OutlineInputBorder(),
                 ),
-                 validator: (value) {
-                  if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
-                    return '请输入有效的费用';
-                  }
-                  return null;
-                },
+                keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 16),
 
-
+              // Description
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
                   labelText: '活动描述',
-                  hintText: '请输入活动描述',
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 5,
-                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '活动描述不能为空';
+                maxLines: 4,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入活动描述';
                   }
                   return null;
                 },
               ),
-               const SizedBox(height: 16.0),
-               // Placeholder for Image Upload
-              Container(
-                 padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 12.0),
-                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4.0),
+              const SizedBox(height: 24),
+
+              // Publish Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _publishActivity,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.camera_alt_outlined, size: 40.0, color: Colors.grey[600]),
-                      const SizedBox(height: 8.0),
-                      Text('添加活动图片 (可选)', style: TextStyle(color: Colors.grey[600])),
-                    ],
-                  ),
-              ),
-              const SizedBox(height: 24.0),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _publishActivity,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          '发布活动',
+                          style: TextStyle(fontSize: 18),
+                        ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('发布活动'),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-                children: [
-                  Text('活动日期'),
-                  Icon(Icons.calendar_today),
-                ],
-              ),
-            ),
-            SizedBox(height = 16.0),
-            // Placeholder for Time Picker
-            Container(
-               padding = const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
-              decoration = BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4.0),
-              ),
-              child = Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('活动时间'),
-                  const Icon(Icons.access_time),
-                ],
-              ),
-            ),
-            SizedBox(height = 16.0),
-            TextField(
-              controller = _locationController,
-              decoration = const InputDecoration(
-                labelText: '活动地点',
-                hintText: '请输入活动地点',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height = 16.0),
-             TextField(
-              controller = _maxParticipantsController,
-              keyboardType = TextInputType.number,
-              decoration = const InputDecoration(
-                labelText: '参与人数上限',
-                hintText: '请输入参与人数上限',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height = 16.0),
-             TextField(
-              controller = _costController,
-              keyboardType = TextInputType.numberWithOptions(decimal: true),
-              decoration = const InputDecoration(
-                labelText: '费用',
-                hintText: '请输入活动费用 (可选)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height = 16.0),
-
-
-            TextField(
-              controller = _descriptionController,
-              decoration = const InputDecoration(
-                labelText: '活动描述',
-                hintText: '请输入活动描述',
-                border: OutlineInputBorder(),
-              ),
-              maxLines = 5,
-            ),
-             SizedBox(height = 16.0),
-             // Placeholder for Image Upload
-            Container(
-               padding = const EdgeInsets.symmetric(vertical: 40.0, horizontal: 12.0),
-               decoration = BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4.0),
-                ),
-                child = Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.camera_alt_outlined, size: 40.0, color: Colors.grey[600]),
-                    const SizedBox(height: 8.0),
-                    Text('添加活动图片 (可选)', style: TextStyle(color: Colors.grey[600])),
-                  ],
-                ),
-            ),
-            SizedBox(height = 24.0),
-            ElevatedButton(
-              onPressed = _isLoading ? null : _publishActivity,
-              style = ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-              ),
-              child = _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Text('发布活动'),
-            ),
-          ],
         ),
       ),
     );

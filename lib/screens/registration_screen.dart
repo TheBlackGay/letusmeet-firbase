@@ -111,14 +111,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
-    setState(() {
-    });
-
-  registerUser() async {
-    setState(() {
-      _isLoading = true;
-    });
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text,
@@ -140,7 +132,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       if (mounted) {
         // Navigate to home page after successful registration
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/');
       }
     } on FirebaseAuthException catch (e) {
       // Handle specific Firebase Auth errors
