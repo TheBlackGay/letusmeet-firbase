@@ -34,22 +34,27 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Filter & Sort',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16.0),
+                '筛选和排序',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ).animate().fadeIn(delay: 200.ms),
+              const SizedBox(height: 24),
+
               Text(
-                'Activity Types',
+                '活动类型',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              const SizedBox(height: 12),
               Wrap(
+                spacing: 8,
                 children: [
-                  'Outdoor Sports',
-                  'Dining & Social',
-                  'Arts & Culture',
-                  'Learning',
-                  'Travel',
-                  'Other'
+                  '户外运动',
+                  '聚餐聚会',
+                  '文化艺术',
+                  '学习交流',
+                  '旅游出行',
+                  '其他'
                 ].map((type) {
                   return FilterChip(
                     label: Text(type),
@@ -66,15 +71,16 @@ class _HomePageState extends State<HomePage> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 24),
+              
               Text(
-                'Sort By',
+                '排序方式',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               Column(
                 children: [
                   RadioListTile<String>(
-                    title: const Text('Newest First'),
+                    title: const Text('最新优先'),
                     value: 'dateDescending',
                     groupValue: _selectedSortOption,
                     onChanged: (String? value) {
@@ -84,7 +90,7 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   RadioListTile<String>(
-                    title: const Text('Oldest First'),
+                    title: const Text('最早优先'),
                     value: 'dateAscending',
                     groupValue: _selectedSortOption,
                     onChanged: (String? value) {
@@ -95,7 +101,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16.0),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -107,13 +113,13 @@ class _HomePageState extends State<HomePage> {
                       });
                       Navigator.pop(context);
                     },
-                    child: const Text('Reset'),
+                    child: const Text('重置'),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    child: const Text('Apply'),
+                    child: const Text('应用'),
                   ),
                 ],
               ),
@@ -164,10 +170,10 @@ class _HomePageState extends State<HomePage> {
 
   String _formatActivityTime(Map<String, dynamic> activityData) {
     final startTime = activityData['startTime'] as Timestamp?;
-    if (startTime == null) return 'Time TBD';
+    if (startTime == null) return '时间待定';
     
     final date = startTime.toDate();
-    return DateFormat('MMM dd, yyyy - HH:mm').format(date);
+    return DateFormat('MM月dd日 • HH:mm').format(date);
   }
 
   @override
@@ -175,7 +181,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'QingYue',
+          '轻约',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -187,14 +193,14 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.tune),
             onPressed: _showFilterSortBottomSheet,
-            tooltip: 'Filter & Sort',
+            tooltip: '筛选和排序',
           ).animate().scale(delay: 500.ms),
           IconButton(
             icon: const Icon(Icons.person_outline),
             onPressed: () {
               Navigator.pushNamed(context, '/my_page');
             },
-            tooltip: 'Profile',
+            tooltip: '个人资料',
           ).animate().scale(delay: 600.ms),
         ],
       ),
@@ -212,7 +218,7 @@ class _HomePageState extends State<HomePage> {
           Navigator.pushNamed(context, '/create_activity');
         },
         icon: const Icon(Icons.add),
-        label: const Text('Create Event'),
+        label: const Text('发布活动'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ).animate()
@@ -233,9 +239,9 @@ class _HomePageState extends State<HomePage> {
           children: [
             Icon(Icons.event_busy, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No activities found', style: TextStyle(fontSize: 18, color: Colors.grey)),
+            Text('暂无活动', style: TextStyle(fontSize: 18, color: Colors.grey)),
             SizedBox(height: 8),
-            Text('Try adjusting your filters', style: TextStyle(color: Colors.grey)),
+            Text('尝试调整筛选条件', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -262,11 +268,11 @@ class _HomePageState extends State<HomePage> {
                 verticalOffset: 50.0,
                 child: FadeInAnimation(
                   child: AnimatedActivityCard(
-                    title: activityData['title'] ?? 'No Title',
+                    title: activityData['title'] ?? '无标题',
                     time: _formatActivityTime(activityData),
-                    location: activityData['location'] ?? 'Unknown Location',
+                    location: activityData['location'] ?? '未知地点',
                     imageUrl: activityData['coverImageUrl'] ?? '',
-                    organizerName: organizerData['displayName'] ?? 'Unknown Organizer',
+                    organizerName: organizerData['displayName'] ?? '未知组织者',
                     currentParticipants: activityData['currentParticipantsCount'] ?? 0,
                     maxParticipants: activityData['maxParticipants'] ?? 0,
                     index: index,
@@ -295,7 +301,7 @@ class _HomePageState extends State<HomePage> {
       stream: query.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(child: Text('错误: ${snapshot.error}'));
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -303,7 +309,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No activities found'));
+          return const Center(child: Text('暂无活动'));
         }
 
         return RefreshIndicator(
@@ -326,11 +332,11 @@ class _HomePageState extends State<HomePage> {
                     verticalOffset: 50.0,
                     child: FadeInAnimation(
                       child: AnimatedActivityCard(
-                        title: activityData['title'] ?? 'No Title',
+                        title: activityData['title'] ?? '无标题',
                         time: _formatActivityTime(activityData),
-                        location: activityData['location'] ?? 'Unknown Location',
+                        location: activityData['location'] ?? '未知地点',
                         imageUrl: activityData['coverImageUrl'] ?? '',
-                        organizerName: 'Loading...', // Will be loaded async
+                        organizerName: '加载中...', // Will be loaded async
                         currentParticipants: activityData['currentParticipantsCount'] ?? 0,
                         maxParticipants: activityData['maxParticipants'] ?? 0,
                         index: index,
