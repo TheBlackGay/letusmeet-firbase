@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,11 +8,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false;
-  bool _isButtonEnabled = false;
-
+  // You can keep the controllers if you plan to add logic later
   @override
   void dispose() {
     _emailController.dispose();
@@ -26,12 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _emailController.addListener(_updateButtonState);
     _passwordController.addListener(_updateButtonState);
-  }
-
-  void _updateButtonState() {
-    setState(() {
-      _isButtonEnabled = _emailController.text.isNotEmpty && _passwordController.text.isNotEmpty;
-    });
   }
 
   @override
@@ -56,14 +45,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              TextField(
+              TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: '邮箱'),
                 keyboardType: TextInputType.emailAddress,
+                // Add validation if needed
               ),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: _passwordController,
+                // Add validation if needed
                 decoration: const InputDecoration(labelText: '密码'),
                 obscureText: true,
               ),
@@ -71,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: () {
                   // TODO: Implement login logic
+                  // Add _isButtonEnabled check if you kept the state variable
                 },
                 child: const Text('登录'),
               ),

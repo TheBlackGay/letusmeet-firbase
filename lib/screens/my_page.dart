@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '/lib/widgets/activity_card_widget.dart';
+import '/lib/screens/emergency_contact_settings_screen.dart';
+import '/lib/screens/activity_detail_screen.dart';
 
-class MyPage extends StatefulWidget {
+class MyPage extends StatefulWidget { // Convert MyPage to StatefulWidget
   const MyPage({super.key});
 
   @override
@@ -10,6 +13,8 @@ class MyPage extends StatefulWidget {
 }
 
 class _MyPageState extends State<MyPage> {
+  final currentUser = FirebaseAuth.instance.currentUser; // Fetch current user
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -22,7 +27,7 @@ class _MyPageState extends State<MyPage> {
     // Using a StreamBuilder to listen for real-time updates to the user document
     return Scaffold(
       appBar: AppBar( // Added AppBar
-        title: const Text('我的页面'),
+        title: const Text('我的'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: StreamBuilder<DocumentSnapshot>(
@@ -43,68 +48,157 @@ class _MyPageState extends State<MyPage> {
           }
 
           final userData = snapshot.data!.data() as Map<String, dynamic>;
-          final nickname = userData['nickname'] ?? '新用户';
-          final authStatus = userData['auth_status'] ?? '未知';
-          final level = userData['level'] ?? '基础用户';
-          // Placeholder for credit score, assuming it will be added later // Added credit score placeholder
-          const creditScore = '--';
+          final displayName = userData['displayName'] ?? '新用户';
+          final photoUrl = userData['photoUrl'];
+          // You can fetch other user data like credit score, auth status here when available
 
           return Padding(
             padding: const EdgeInsets.all(16.0), // Added padding
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: ListView( // Use ListView for scrolling content
               children: [
-                const CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.grey, // Placeholder color
-                  child: Icon(Icons.person, size: 40, color: Colors.white), // Placeholder icon
-                ), // Added avatar placeholder
-                const SizedBox(height: 16),
-                Text(
-                  nickname,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.grey, // Placeholder color
+                      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                      child: photoUrl == null ? const Icon(Icons.person, size: 40, color: Colors.white) : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      displayName,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    // Placeholder for other user info like level, auth status, credit score
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text('等级: $level', style: Theme.of(context).textTheme.titleMedium), // Display level
-                const SizedBox(height: 8),
-                Text('认证状态: $authStatus', style: Theme.of(context).textTheme.titleMedium), // Display auth status
-                const SizedBox(height: 8),
-                Text('信用分: $creditScore', style: Theme.of(context).textTheme.titleMedium), // Display credit score placeholder
-                const SizedBox(height: 24),
                 // Placeholder for Navigation Options
-                ListTile(
-                  leading: const Icon(Icons.history),
-                  title: const Text('活动历史'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16), // Added trailing icon
-                  onTap: () {
-                    // TODO: Navigate to Activity History Page
-                  },
-                ),
-                const Divider(),
                 ListTile(
                   leading: const Icon(Icons.event_note), // Added leading icon
                   title: const Text('我的报名'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16), // Added trailing icon
                   onTap: () {
-                    // TODO: Navigate to My Registrations Page
-                  },
-                ),
-                const Divider(), // Added Divider
-                ListTile(
-                  leading: const Icon(Icons.settings),
-                  title: const Text('设置'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    // TODO: Navigate to Settings Page
+                    // TODO: Navigate to a dedicated page for '我参与的活动' if needed, or show in this page
                   },
                 ),
                 const Divider(),
-                const Expanded(child: SizedBox()), // Pushes logout button to the bottom
+                ListTile(
+                  leading: const Icon(Icons.settings),
+ title: const Text('紧急联系人设置'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+ Navigator.of(context).push(
+ MaterialPageRoute(builder: (context) => const EmergencyContactSettingsScreen()),
+ );
+                  },
+
+                const SizedBox(height: 24),
+                Text(
+                  '我参与的活动',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                // StreamBuilder for activities the user has applied for
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('activity_applications')
+                      .where('userId', isEqualTo: currentUser!.uid)
+                      .snapshots(),
+                  builder: (context, applicationSnapshot) {
+                    if (applicationSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (applicationSnapshot.hasError) {
+                      return Center(child: Text('Error loading applications: ${applicationSnapshot.error}'));
+                    }
+                    if (!applicationSnapshot.hasData || applicationSnapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('您还没有报名的活动。'));
+                    }
+
+                    final appliedActivityIds = applicationSnapshot.data!.docs.map((doc) => doc['activityId']).toList();
+
+                    if (appliedActivityIds.isEmpty) {
+                       return const Center(child: Text('您还没有报名的活动。'));
+                    }
+
+                    // Now fetch the actual activity details for these IDs
+                    return FutureBuilder<QuerySnapshot>( // Using FutureBuilder as we have a list of IDs
+                       future: FirebaseFirestore.instance
+                           .collection('activities')
+                           .where(FieldPath.documentId, whereIn: appliedActivityIds)
+                           .get(),
+                       builder: (context, activitySnapshot) {
+                         if (activitySnapshot.connectionState == ConnectionState.waiting) {
+                           return const Center(child: CircularProgressIndicator());
+                         }
+                         if (activitySnapshot.hasError) {
+                           return Center(child: Text('Error loading applied activities: ${activitySnapshot.error}'));
+                         }
+                         if (!activitySnapshot.hasData || activitySnapshot.data!.docs.isEmpty) {
+                            return const Center(child: Text('未能加载报名的活动。'));
+                         }
+
+                         final appliedActivities = activitySnapshot.data!.docs;
+
+                         return ListView.builder(
+                           shrinkWrap: true, // Important for nested ListViews
+                           physics: const NeverScrollableScrollPhysics(), // Disable scrolling for this inner list
+                           itemCount: appliedActivities.length,
+                           itemBuilder: (context, index) {
+                             final activity = appliedActivities[index];
+                             return ActivityCardWidget(activity: activity); // Reuse ActivityCardWidget
+                           },
+                         );
+                       },
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+                Text(
+                  '我发布的活动',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                // StreamBuilder for activities the user has organized
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('activities')
+                      .where('organizerId', isEqualTo: currentUser!.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error loading organized activities: ${snapshot.error}'));
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('您还没有发布的活动。'));
+                    }
+
+                    final organizedActivities = snapshot.data!.docs;
+
+                    return ListView.builder(
+                      shrinkWrap: true, // Important for nested ListViews
+                      physics: const NeverScrollableScrollPhysics(), // Disable scrolling for this inner list
+                      itemCount: organizedActivities.length,
+                      itemBuilder: (context, index) {
+                        final activity = organizedActivities[index];
+                        return ActivityCardWidget(activity: activity); // Reuse ActivityCardWidget
+                      },
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 40), // Space before logout button
                 ElevatedButton(
                   onPressed: () async { // Added logout button
                     await FirebaseAuth.instance.signOut();
                      if (mounted) {
-                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                      Navigator.of(context).pushNamedAndRemoveUntil('/authentication', (route) => false); // Navigate to authentication screen after logout
                      }
                   },
                   style: ElevatedButton.styleFrom(
@@ -116,7 +210,7 @@ class _MyPageState extends State<MyPage> {
                 ),
               ],
             ),
-          );
+          ); // Wrap in ListView for scrolling
         },
       ),
     );

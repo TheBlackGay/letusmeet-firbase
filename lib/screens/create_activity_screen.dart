@@ -11,8 +11,11 @@ class CreateActivityScreen extends StatefulWidget {
 class _CreateActivityScreenState extends State<CreateActivityScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _maxParticipantsController = TextEditingController();
+  final TextEditingController _costController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
+  String? _selectedActivityType;
   bool _isLoading = false;
 
   @override
@@ -20,6 +23,8 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     _titleController.dispose();
     _locationController.dispose();
     _descriptionController.dispose();
+    _maxParticipantsController.dispose();
+    _costController.dispose();
     super.dispose();
   }
 
@@ -33,6 +38,9 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         'title': _titleController.text,
         'location': _locationController.text,
         'description': _descriptionController.text,
+        'type': _selectedActivityType,
+        'maxParticipants': int.tryParse(_maxParticipantsController.text) ?? 0,
+        'cost': double.tryParse(_costController.text) ?? 0.0,
         'date': 'TODO: Implement date picker', // Placeholder
         'time': 'TODO: Implement time picker', // Placeholder
         'createdAt': Timestamp.now(),
@@ -70,6 +78,25 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
               ),
             ),
             const SizedBox(height: 16.0),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: '活动类型',
+                border: OutlineInputBorder(),
+              ),
+              value: _selectedActivityType,
+              hint: const Text('请选择活动类型'),
+              items: ['聚餐', '运动', '桌游', '其他']
+                  .map((type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedActivityType = value;
+                });
+              },
+            ),
             // Placeholder for Date Picker
             Container(
               padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
@@ -111,6 +138,28 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
               ),
             ),
             const SizedBox(height: 16.0),
+             TextField(
+              controller: _maxParticipantsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '参与人数上限',
+                hintText: '请输入参与人数上限',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16.0),
+             TextField(
+              controller: _costController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '费用',
+                hintText: '请输入活动费用 (可选)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16.0),
+
+
             TextField(
               controller: _descriptionController,
               decoration: const InputDecoration(

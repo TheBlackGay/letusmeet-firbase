@@ -24,6 +24,9 @@ class _HomePageState extends State<HomePage> {
     return completer.future;
   }
 
+  // State variables for filtering and sorting
+  List<String> _selectedActivityTypes = []; // To store selected activity types
+  String _selectedSortOption = 'dateDescending'; // Default sort option: date descending
   void _showFilterSortBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -43,15 +46,62 @@ class _HomePageState extends State<HomePage> {
                 '按类型筛选',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8.0),
-              Container(height: 100, color: Colors.grey[200]), // Placeholder for filter options
+              // Checkboxes for activity types
+              Wrap(
+                spacing: 8.0,
+                children: ['聚餐', '运动', '桌游', '其他'].map((type) {
+                  return FilterChip(
+                    label: Text(type),
+                    selected: _selectedActivityTypes.contains(type),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedActivityTypes.add(type);
+                        } else {
+                          _selectedActivityTypes.remove(type);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
               const SizedBox(height: 16.0),
               Text(
                 '按日期排序',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8.0),
-              Container(height: 50, color: Colors.grey[200]), // Placeholder for sort options
+              // Radio buttons for sorting options
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('按日期降序'),
+                    value: 'dateDescending',
+                    groupValue: _selectedSortOption,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedSortOption = value;
+                        });
+                      }
+                    },
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('按日期升序'),
+                    value: 'dateAscending',
+                    groupValue: _selectedSortOption,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedSortOption = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16.0),
+              // Close button
             ],
           ),
         );
