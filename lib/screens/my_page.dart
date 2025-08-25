@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:myapp/lib/widgets/activity_card_widget.dart';
-import 'package:myapp/lib/screens/emergency_contact_settings_screen.dart';
-import 'package:myapp/lib/screens/activity_detail_screen.dart';
+import '../widgets/activity_card_widget.dart';
+import './emergency_contact_settings_screen.dart';
+import './activity_detail_screen.dart';
 
 class MyPage extends StatefulWidget { // Convert MyPage to StatefulWidget
   const MyPage({super.key});
