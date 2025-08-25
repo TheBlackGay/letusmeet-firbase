@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myapp/screens/login_screen.dart';
+import 'package:myapp/screens/registration_screen.dart';
+import 'package:myapp/screens/authentication_screen.dart'; // Import authentication screen
+
+void main() async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -9,6 +17,42 @@ class MyApp extends StatelessWidget {
 
   // This widget is the root of your application.
   @override
+  Widget build(BuildContext context) {
+ return MaterialApp(
+ title: 'Flutter Demo',
+ theme: ThemeData(
+ colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+ useMaterial3: true,
+ ),
+ initialRoute: '/',
+ routes: {
+ '/': (context) => StreamBuilder<User?>(
+ stream: FirebaseAuth.instance.authStateChanges(),
+ builder: (context, snapshot) {
+ if (snapshot.hasData) {
+                  return const MyHomePage(title: 'Flutter Demo Home Page');
+ } else {
+ return const LoginScreen();
+ }
+ },
+ ),
+ '/login': (context) => const LoginScreen(),
+ '/registration': (context) => const RegistrationScreen(),
+        '/create_activity': (context) => const CreateActivityScreen(),
+        '/authentication': (context) => const AuthenticationScreen(), // Add authentication route
+ },
+ );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+  final String title;
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+
+
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
@@ -83,6 +127,16 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+            tooltip: 'Logout',
+          ),
+        ],
+      ),
         title: Text(widget.title),
       ),
       body: Center(
