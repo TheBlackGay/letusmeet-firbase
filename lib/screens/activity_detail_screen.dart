@@ -18,7 +18,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
   late final String activityId;
   // Future to hold the activity data
   late Future<Map<String, dynamic>?> _activityDetails;
-  final bool _isApplied = false;
+  bool _isApplied = false; // Changed to non-final for state updates
   String? _dynamicSafetyCode;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -40,6 +40,10 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     return String.fromCharCodes(Iterable.generate(6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
   }
 
+  // Helper to format Timestamp to a readable date/time string
+  String _formatTimestamp(Timestamp? timestamp) {
+    // TODO: Implement proper date and time formatting based on duration and locale
+    if (timestamp == null) return '待定';
   Future<Map<String, dynamic>?> _fetchActivityDetails() async {
     print('Fetching activity details for ID: $activityId');
     try {
@@ -51,6 +55,10 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
       if (!activityDoc.exists) {
         return null;
       }
+       print('Activity data fetched: ${activityDoc.data()}'); // Debugging line
+      // Return the data directly. FutureBuilder will handle null/error.
+      return activityDoc.data();
+    } catch (e) {
       return activityDoc.data();
   }
 
@@ -82,18 +90,15 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
 
           // Activity data is available
           final activityData = snapshot.data!;
-          final Timestamp? startTime = activityData['startTime'] as Timestamp?;
-          final DateTime? activityDateTime = startTime?.toDate();
+          final Timestamp? startTime = activityData['startTime'] as Timestamp?; // Keep Timestamp
+          final Timestamp? endTime = activityData['endTime'] as Timestamp?; // Fetch end time
+          final DateTime? activityStartDateTime = startTime?.toDate(); // Convert to DateTime for comparison/formatting
+          final DateTime? activityEndDateTime = endTime?.toDate();
 
           final int currentParticipants = activityData['currentParticipantsCount'] ?? 0;
           final int maxParticipants = activityData['maxParticipants'] ?? 0;
-
           // Format date and time
-          String formattedDateTime = '待定';
-          if (activityDateTime != null) {
-            formattedDateTime =
-                '${activityDateTime.year}-${activityDateTime.month}-${activityDateTime.day} ${activityDateTime.hour}:${activityDateTime.minute.toString().padLeft(2, '0')}';
-          }
+          String formattedDateTime = _formatTimestamp(startTime);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -281,6 +286,14 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                   },
                 ),
 
+                const SizedBox(height: 24),
+
+                // Organizer Application Management Section (TODO)
+                if (_auth.currentUser?.uid == activityData['organizerId']) ...[
+                  const Text(
+                    'Organizer Application Management Section (TODO)',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
                 const SizedBox(height: 24),
 
                 // "报名参与" Button (conditionally displayed)

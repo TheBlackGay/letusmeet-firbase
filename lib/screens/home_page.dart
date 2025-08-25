@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Import for date formatting
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../widgets/activity_card_widget.dart';
 
 class HomePage extends StatefulWidget {
@@ -12,17 +14,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Method to refresh activities
-  Future<void> _refreshActivities() async {
-    // When using pagination, a pull-to-refresh should ideally refetch the first page
-    // and clear the existing data.
-    setState(() {
-      _activities.clear();
-      _lastDocument = null;
-    });
-    await _fetchFirstPage();
-  }
-  // State variables for filtering and sorting
   final List<String> _selectedActivityTypes = []; // To store selected activity types
   String _selectedSortOption = 'dateDescending'; // Default sort option: date descending
   void _showFilterSortBottomSheet() {
@@ -62,6 +53,7 @@ class _HomePageState extends State<HomePage> {
                         _activities.clear();
                         _lastDocument = null;
                       });
+                      _fetchFirstPage(); // Re-fetch with new filters
                     },
                   );
                 }).toList(),
@@ -87,6 +79,7 @@ class _HomePageState extends State<HomePage> {
                           _activities.clear();
                           _lastDocument = null;
                         });
+                        _fetchFirstPage(); // Re-fetch with new sort
                       }
                     },
                   ),
@@ -102,6 +95,7 @@ class _HomePageState extends State<HomePage> {
                           _activities.clear();
                           _lastDocument = null;
                         });
+                        _fetchFirstPage(); // Re-fetch with new sort
                       }
                     },
                   ),
@@ -112,9 +106,6 @@ class _HomePageState extends State<HomePage> {
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Trigger fetching the first page with new filters/sort
-                    // This is already handled in the setState callbacks of the filters/sort options.
-                    // We can just close the bottom sheet here.
                     Navigator.pop(context);
                   },
                   child: const Text('确定'),
@@ -136,7 +127,8 @@ class _HomePageState extends State<HomePage> {
   final _scrollController = ScrollController();
   final int _pageSize = 10; // Define your page size
   List<DocumentSnapshot> _activities = []; // To store fetched documents
-  bool _isFetchingMore = false;
+  bool _isLoadingInitial = true; // Track initial fetch
+  bool _isFetchingMore = false; // Track fetching more data for pagination
   DocumentSnapshot? _lastDocument; // To store the last document of the previous page
   StreamSubscription? _activitySubscription;
 
@@ -147,6 +139,20 @@ class _HomePageState extends State<HomePage> {
     _fetchFirstPage(); // Fetch the first page on init
   }
 
+  // Method to refresh activities (for Pull-to-Refresh)
+  Future<void> _refreshActivities() async {
+    // Cancel any ongoing subscription
+    _activitySubscription?.cancel();
+    // Reset state for a new fetch
+    setState(() {
+      _activities.clear();
+      _lastDocument = null;
+      _isLoadingInitial = true; // Set to true as we are starting a new initial fetch
+    });
+    // Fetch the first page again
+    _fetchFirstPage();
+  }
+
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
@@ -155,9 +161,12 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  // Listener for scroll events to implement infinite scrolling
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent && !_isFetchingMore) {
-      // User has scrolled to the bottom and we are not already fetching
+    // Check if the user is at the bottom of the list and not already fetching more
+    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
+        !_isFetchingMore &&
+        _lastDocument != null) { // Only fetch more if there might be more data
       _fetchMoreActivities();
     }
   }
@@ -184,108 +193,62 @@ class _HomePageState extends State<HomePage> {
 
     query = query.limit(_pageSize);
 
-    _activitySubscription = query.snapshots().listen((querySnapshot) {
-        setState(() {
-            _activities = querySnapshot.docs;
-            if (querySnapshot.docs.isNotEmpty) {
-                _lastDocument = querySnapshot.docs.last;
-            } else {
-                _lastDocument = null;
-            }
-        });
-    });
+    try {
+       setState(() {
+         _isLoadingInitial = true; // Show loading indicator
+       });
+
+        final querySnapshot = await query.get(); // Use .get() for the first fetch
+
+        if (mounted) {
+            setState(() {
+                _activities = querySnapshot.docs;
+                if (querySnapshot.docs.isNotEmpty) {
+                    _lastDocument = querySnapshot.docs.last;
+                } else {
+                    _lastDocument = null;
+                }
+               _isLoadingInitial = false; // Hide loading indicator
+            });
+        }
+
+         // Re-subscribe to real-time updates for the current query
+         _activitySubscription = query.snapshots().listen((snapshot) {
+            if (mounted) {
+                setState(() {
+                    _activities = snapshot.docs;
+                    if (snapshot.docs.isNotEmpty) {
+                        _lastDocument = snapshot.docs.last;
+                    } else {
+                         _lastDocument = null;
+                    }
+ });
+             }
+         }, onError: (error) {
+            print('Error fetching initial activities: $error');
+             if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(content: Text('Error fetching activities: ${error.toString()}')),
+               );
+                setState(() {
+                   _isLoadingInitial = false;
+                });
+             }
+         });
+
+    } catch (e) {
+       print('Error fetching initial activities: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching activities: ${e.toString()}')),
+          );
+          setState(() {
+                _isLoadingInitial = false;
+           });
+        }
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('活动列表'),
-        actions: [
-          // Placeholder for adding new activity button
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.pushNamed(context, '/create_activity');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-            tooltip: 'Logout',
-          ),
-          // Filter/Sort Icon
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterSortBottomSheet, // Call the method to show the bottom sheet
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Placeholder for filtering/sorting UI elements
-          // We are using a bottom sheet for options, so this can be removed or used for displaying current filters
-
-          Expanded(
-            // Placeholder for the activity list
-            child: _activities.isEmpty && _lastDocument == null && !_isFetchingMore
-                ? const Center(child: CircularProgressIndicator()) // Show loading on initial fetch
-                : _activities.isEmpty && _lastDocument == null && _isFetchingMore
-                  ? const Center(child: Text('No activities found.')) // Show message if no activities after initial fetch
-                  : RefreshIndicator(
-                  onRefresh: _refreshActivities,
-                  child: ListView.builder(
-                    controller: _scrollController, // Attach scroll controller
-                    itemCount: _activities.length + (_isFetchingMore ? 1 : 0), // Add 1 for loading indicator
-                    itemBuilder: (context, index) {
-                      if (index == _activities.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        ); // Loading indicator at the bottom
-                      }
-
-                      var activity = _activities[index].data() as Map<String, dynamic>;
-                      var activityId = _activities[index].id; // Get the document ID
-                      // Use try-catch or null checks for safety when accessing data
-                      var startTime = activity['startTime'] as Timestamp?;
-                      DateTime? activityTime = startTime?.toDate();
-
-                      return InkWell( // Use InkWell for tap effect
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/activity_detail',
-                            arguments: activityId, // Pass the activity ID as an argument
-                          );
-                        },
-                        child: ActivityCardWidget(
-                          // Provide default values in case of null
-                          title: activity['title'] ?? '无标题活动',
-                          time: '${activityTime.toLocal()}', // Format time nicely
-                          location: activity['location'] ?? '未知地点',
-                          imageUrl: activity['coverImageUrl'] ?? '', // Use coverImageUrl from PRD
-                          organizerName: '未知组织者', // Placeholder - need to fetch organizer name
-                          currentParticipants: activity['currentParticipantsCount'] ?? 0, // Use currentParticipantsCount from PRD
-                          maxParticipants: activity['maxParticipants'] ?? 0, // Use maxParticipants from PRD
-                        ),
-                      );
-                    },
-                  ),
-                ),
-          ),
-           // Show initial loading outside the list if _activities is empty
-           if (_activities.isEmpty && _lastDocument == null && !_isFetchingMore)
-              const Center(child: CircularProgressIndicator()),
-           // Show "No activities found" message if _activities is empty and not fetching more
-           if (_activities.isEmpty && !_isFetchingMore && _lastDocument != null) // Check if initial fetch is done but no activities
-              const Center(child: Text('No activities found.')),
-        ],
-      ),
-    );
-  }
 
   Future<void> _fetchMoreActivities() async {
     if (_isFetchingMore || _lastDocument == null) return;
@@ -317,71 +280,153 @@ class _HomePageState extends State<HomePage> {
     try {
       final querySnapshot = await query.get();
 
-      setState(() {
-        _activities.addAll(querySnapshot.docs);
-        if (querySnapshot.docs.isNotEmpty) {
-          _lastDocument = querySnapshot.docs.last;
-        } else {
-          _lastDocument = null; // No more data
-        }
-        _isFetchingMore = false;
-      });
+      if (mounted) {
+         setState(() {
+            _activities.addAll(querySnapshot.docs);
+ if (querySnapshot.docs.isNotEmpty) {
+              _lastDocument = querySnapshot.docs.last;
+            } else {
+              _lastDocument = null; // No more data
+            }
+            _isFetchingMore = false;
+         });
+      }
     } catch (e) {
        // Handle errors during fetching more activities
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Error fetching more activities: ${e.toString()}')),
-       );
-      setState(() {
-        _isFetchingMore = false;
-      });
+        print('Error fetching more activities: $e');
+       if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching more activities: ${e.toString()}')),
+          );
+         setState(() {
+           _isFetchingMore = false;
+         });
+       }
     }
   }
-}
 
 
-                  return Center(child = CircularProgressIndicator());
-                }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar( // App bar for the home page
+        title: const Text('活动列表'), // Title of the app bar
+        actions: [
+          // Add new activity button
+          IconButton(
+            icon: const Icon(Icons.add),
+            // Navigate to the create activity screen when pressed
+            // The route name '/create_activity' is defined in main.dart
+            // This allows the user to publish a new activity
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No activities found.'));
-                }
-
-                // Display the list of activities
-                return RefreshIndicator(
-                  onRefresh = _refreshActivities,
-                  child = ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      var activity = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                      var activityId = snapshot.data!.docs[index].id; // Get the document ID
-                      return InkWell( // Use InkWell for tap effect
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/activity_detail',
-                            arguments: activityId, // Pass the activity ID as an argument
-                          );
-                        },
-                        child: Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                          child: ActivityCardWidget(
-                            title: activity['title'] ?? '无标题活动',
-                            time: activity['time'] ?? '未知时间', // Placeholder
-                            location: activity['location'] ?? '未知地点', // Placeholder
-                            imageUrl: activity['imageUrl'] ?? '', // Pass imageUrl
-                            organizerName: activity['organizerName'] ?? '未知组织者', // Pass organizerName
-                            currentParticipants: activity['currentParticipants'] ?? 0, // Pass attendee count
-                            maxParticipants: activity['maxParticipants'] ?? 0, // Pass max participants
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+            onPressed: () {
+              Navigator.pushNamed(context, '/create_activity');
+            },
+            tooltip: '发布新活动',
+          ),
+          // Filter/Sort Icon
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterSortBottomSheet,
+            tooltip: '筛选和排序',
+          ),
+          // Logout button
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              // Sign out the current user from Firebase Authentication
+              await FirebaseAuth.instance.signOut();
+            },
+            tooltip: '退出登录',
           ),
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refreshActivities,
+        child: _isLoadingInitial
+            // Show initial loading indicator
+            ? const Center(child: CircularProgressIndicator())
+            : _activities.isEmpty
+                ? const Center(child: Text('暂无活动'))
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _activities.length + (_isFetchingMore ? 1 : 0), // Add 1 for loading indicator
+                    itemBuilder: (context, index) {
+                      if (index == _activities.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ); // Loading indicator at the bottom
+                      }
+
+                      var activity = _activities[index].data() as Map<String, dynamic>;
+                      var activityId = _activities[index].id; // Get the document ID
+                      // Use try-catch or null checks for safety when accessing data
+                      var startTime = activity['startTime'] as Timestamp?;
+                      var endTime = activity['endTime'] as Timestamp?;
+                      DateTime? activityStartTime = startTime?.toDate();
+                      DateTime? activityEndTime = endTime?.toDate();
+
+                      // Fetch organizer name
+                      // Using FutureBuilder for asynchronous data fetching for each card
+                      return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance.collection('users').doc(activity['organizerId']).get(),
+                          builder: (context, userSnapshot) {
+                            String organizerName = '加载中...'; // Default while loading
+                            if (userSnapshot.connectionState == ConnectionState.done) {
+                               if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                                 final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+                                 organizerName = userData?['displayName'] ?? '未知组织者';
+                               } else {
+                                 organizerName = '未知组织者'; // Organizer not found
+                               }
+                             } else {
+                                // Still loading
+                              }
+
+                              // Format the date and time
+                              String formattedTime = '时间未知'; // Default value
+                              if (activityStartTime != null) {
+                                 final startDateFormatted = DateFormat('yyyy-MM-dd').format(activityStartTime.toLocal());
+                                 final startTimeFormatted = DateFormat('HH:mm').format(activityStartTime.toLocal());
+                                 formattedTime = '$startDateFormatted $startTimeFormatted';
+
+                                 if (activityEndTime != null) {
+                                    final endDateFormatted = DateFormat('yyyy-MM-dd').format(activityEndTime.toLocal());
+                                    final endTimeFormatted = DateFormat('HH:mm').format(activityEndTime.toLocal());
+
+                                    if (startDateFormatted == endDateFormatted) {
+                                       formattedTime += ' - $endTimeFormatted';
+                                    } else {
+                                       formattedTime += ' - $endDateFormatted $endTimeFormatted';
+                                    }
+                                 }
+                              }
+
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/activity_detail',
+                                    arguments: activityId, // Pass the activity ID as an argument
+                                  );
+                                },
+                                child: ActivityCardWidget(
+                                  // Provide default values in case of null
+                                  title: activity['title'] ?? '无标题活动',
+                                  time: formattedTime, // Use formatted time
+                                  location: activity['location'] ?? '未知地点',
+                                  imageUrl: activity['coverImageUrl'] ?? '',
+                                  organizerName: organizerName, // Use fetched organizer name
+                                  currentParticipants: activity['currentParticipantsCount'] ?? 0,
+                                  maxParticipants: activity['maxParticipants'] ?? 0,
+                                ),
+                              );
+                             }
+                    },
+                  ),
+                ),
       ),
     );
   }

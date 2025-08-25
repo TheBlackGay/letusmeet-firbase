@@ -19,6 +19,8 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  DateTime? _selectedEndDate;
+  TimeOfDay? _selectedEndTime;
 
   String? _selectedActivityType;
   bool _isLoading = false;
@@ -63,14 +65,13 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
-    if (_selectedActivityType == null) {
+     if (_selectedDate == null || _selectedTime == null || _selectedEndDate == null || _selectedEndTime == null) {
        ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择活动类型')),
+        const SnackBar(content: Text('请选择活动日期和时间 범위')),
       );
-      return;
     }
      if (_selectedDate == null || _selectedTime == null) {
+
        ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请选择活动日期和时间')),
       );
@@ -104,6 +105,13 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
           _selectedTime!.hour,
           _selectedTime!.minute,
         ),
+ 'endTime': DateTime(
+ _selectedEndDate!.year,
+ _selectedEndDate!.month,
+ _selectedEndDate!.day,
+ _selectedEndTime!.hour,
+ _selectedEndTime!.minute,
+ ),
         'organizerId': currentUser.uid,
         'currentParticipantsCount': 0,
         'status': 'upcoming',
@@ -112,10 +120,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         'updatedAt': Timestamp.now(),
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('活动发布成功！')),);
-
+ const SnackBar(content: Text('活动发布成功！')),
+ );
+      Navigator.pop(context); // Navigate back after successful publishing
     } catch (e) {
-      print('Error publishing activity: $e');
+      if (mounted) {
+ ScaffoldMessenger.of(context).showSnackBar(
+ SnackBar(content: Text('发布活动失败：${e.toString()}')),
+ );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -195,6 +208,32 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                  shape: RoundedRectangleBorder(
                   side: BorderSide(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(4.0),
+                ),
+              ),
+              const SizedBox(height: 16.0),
+              // End Date Picker
+              ListTile(
+ leading: const Icon(Icons.calendar_today),
+ title: Text(_selectedEndDate == null
+ ? '选择活动结束日期'
+ : '活动结束日期: ${_selectedEndDate!.toLocal().toString().split(' ')[0]}'),
+ onTap: () => _selectEndDate(context),
+ shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Colors.grey.shade400),
+ borderRadius: BorderRadius.circular(4.0),
+                ),
+              ),
+              const SizedBox(height: 16.0),
+              // End Time Picker
+              ListTile(
+ leading: const Icon(Icons.access_time),
+ title: Text(_selectedEndTime == null
+ ? '选择活动结束时间'
+ : '活动结束时间: ${_selectedEndTime!.format(context)}'),
+ onTap: () => _selectEndTime(context),
+ shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Colors.grey.shade400),
+ borderRadius: BorderRadius.circular(4.0),
                 ),
               ),
               const SizedBox(height: 16.0),

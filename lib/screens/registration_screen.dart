@@ -88,7 +88,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: () {
-                    // TODO: Implement navigation to login
+                    Navigator.pushNamed(context, '/login');
                   },
                   child: const Text('已有账号？去登录'),
                 ),

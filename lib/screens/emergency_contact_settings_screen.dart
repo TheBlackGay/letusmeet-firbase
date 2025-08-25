@@ -67,7 +67,9 @@ class _EmergencyContactSettingsScreenState
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载紧急联系人失败：$e')),
+        SnackBar(
+            content: Text('加载紧急联系人失败: ${e.toString()}')), // More specific error
+
       );
     } finally {
       setState(() {
@@ -112,7 +114,9 @@ class _EmergencyContactSettingsScreenState
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('保存紧急联系人失败：$e')),
-);
+
+          SnackBar(content: Text('保存紧急联系人失败: ${e.toString()}')), // More specific error
+        );
       } finally {
         setState(() {
           _isLoading = false;
@@ -154,19 +158,16 @@ class _EmergencyContactSettingsScreenState
                                 // Optional validation: require both name and phone if one is filled
                                 // Basic check: if either field has content, the other should also have content
                                 if ((value?.isNotEmpty == true) &&
-                                    (_phoneControllers[index].text.isEmpty)) {
-                                  return '请填写电话号码';
-                                }
-                                if ((value?.isEmpty == true) &&
                                     (_phoneControllers[index].text.isNotEmpty)) {
                                    return '请填写姓名';
                                 }
                                 if ((value?.isNotEmpty == true) && (_phoneControllers[index].text.isNotEmpty)) {
-                                  // Add more specific name validation if needed later
+                                  // You can add more specific name validation here if needed
                                 }
                                 return null;
                               },
                             ),
+
                             const SizedBox(height: 8.0),
                             TextFormField(
                               controller: _phoneControllers[index],
@@ -177,18 +178,14 @@ class _EmergencyContactSettingsScreenState
                               keyboardType: TextInputType.phone,
                               validator: (value) {
                                 // Basic check: if either field has content, the other should also have content
-                                if ((value?.isNotEmpty == true) &&
-                                    (_nameControllers[index].text.isEmpty)) {
+                                if ((value?.isNotEmpty == true) && (_nameControllers[index].text.isEmpty)) {
                                   return '请填写姓名';
                                 }
                                 if ((value?.isEmpty == true) &&
-                                    (_nameControllers[index].text.isNotEmpty)) {
-                                   return '请填写电话号码';
+                                    (_nameControllers[index].text.isNotEmpty)) { // Fixed logic for checking if name is filled but phone is empty
+                                   return '请填写电话号码'; // This error should be on the phone field
                                 }
                                 // Basic phone number format check (can be more comprehensive)
-                                if ((value?.isNotEmpty == true) && !RegExp(r'^[0-9]+$').hasMatch(value!)) {
-                                  return '请输入有效的电话号码';
-                                }
                                 return null;
                               },
                             ),
@@ -200,7 +197,6 @@ class _EmergencyContactSettingsScreenState
                         onPressed: _isLoading ? null : _saveEmergencyContacts,
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('保存'),
                         child: const Text('保存'),
                       );
                     }

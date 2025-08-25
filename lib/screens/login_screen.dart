@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
         // Login successful, navigate to home page
-        Navigator.of(context).pushReplacementNamed('/home'); // Use your home page route name
+        Navigator.of(context).pushReplacementNamed('/'); // Use your home page route name
       } on FirebaseAuthException catch (e) {
         String message;
         if (e.code == 'user-not-found') {
@@ -125,6 +125,67 @@ class _LoginScreenState extends State<LoginScreen> {
                     Navigator.pushNamed(context, '/registration');
                   },
                   child: const Text('还没有账号？立即注册'),
+                ),
+              ],
+            children: <Widget>[
+ Text(
+ '欢迎来到轻约',
+ textAlign: TextAlign.center,
+ style: TextStyle(
+ fontSize: 24,
+ fontWeight: FontWeight.bold,
+                  ),
+                ),
+ const SizedBox(height: 40),
+ TextFormField(
+ controller: _emailController,
+ decoration: const InputDecoration(labelText: '邮箱'),
+ keyboardType: TextInputType.emailAddress,
+ validator: (value) {
+ if (value == null || value.isEmpty) {
+ return '请输入邮箱';
+                    }
+ if (!EmailValidator.validate(value)) {
+ return '请输入有效的邮箱地址';
+                    }
+ return null;
+                  },
+                ),
+ const SizedBox(height: 12),
+ TextFormField(
+ controller: _passwordController,
+ decoration: const InputDecoration(labelText: '密码'),
+ obscureText: true,
+ validator: (value) {
+ if (value == null || value.isEmpty) {
+ return '请输入密码';
+                    }
+ if (value.length < 6) {
+ return '密码至少需要6个字符';
+                    }
+ return null;
+                  },
+                ),
+ const SizedBox(height: 24),
+ _isLoading
+ ? const Center(child: CircularProgressIndicator())
+ : ElevatedButton(
+ onPressed: _login,
+ child: const Text('登录'),
+                      ),
+ const SizedBox(height: 16),
+ TextButton(
+ onPressed: () {
+ Navigator.pushNamed(context, '/registration');
+                  },
+ child: const Text('还没有账号？立即注册'),
+                ),
+ const SizedBox(height: 8), // Add some spacing
+ TextButton(
+ onPressed: () {
+ // TODO: Implement password reset logic
+                  },
+ child: const Text('忘记密码？'),
                 ),
               ],
             ),
