@@ -11,7 +11,13 @@ import 'package:myapp/screens/create_activity_screen.dart'; // Import create act
 import 'package:myapp/screens/activity_detail_screen.dart'; // Import activity detail screen
 
 void main() async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    print('Firebase initialization failed: $e');
+    // Continue without Firebase for testing
+  }
   runApp(const MyApp());
 }
 

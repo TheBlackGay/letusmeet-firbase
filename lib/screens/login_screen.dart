@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart'; // Import the email_validator package
+import '../services/mock_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,27 +30,31 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+        // Try Firebase first, fallback to mock service
+        try {
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+        } catch (firebaseError) {
+          print('Firebase login failed, using mock service: $firebaseError');
+          // Use mock service as fallback
+          await MockAuthService.login(_emailController.text.trim(), _passwordController.text.trim());
+        }
+        
         // Login successful, navigate to home page
-        Navigator.of(context).pushReplacementNamed('/'); // Use your home page route name
-      } on FirebaseAuthException catch (e) {
+        Navigator.of(context).pushReplacementNamed('/');
+      } catch (e) {
         String message;
-        if (e.code == 'user-not-found') {
-          message = '未找到该用户。';
-        } else if (e.code == 'wrong-password') {
-          message = '密码错误。';
+        if (e.toString().contains('用户不存在')) {
+          message = '未找到该用户';
+        } else if (e.toString().contains('密码错误')) {
+          message = '密码错误';
         } else {
-          message = '登录失败：${e.message}';
+          message = '登录失败：$e';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发生错误：$e')),
         );
       } finally {
         setState(() {
