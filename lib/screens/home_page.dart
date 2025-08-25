@@ -4,6 +4,7 @@ import 'package:intl/intl.dart'; // Import for date formatting
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import \'../widgets/activity_list_item_widget.dart\'; // Import the new widget
 import '../widgets/activity_card_widget.dart';
 
 class HomePage extends StatefulWidget {
