@@ -135,11 +135,3 @@ class _RealNameVerificationScreenState extends State<RealNameVerificationScreen>
     );
   }
 }
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

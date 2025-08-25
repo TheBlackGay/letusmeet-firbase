@@ -156,7 +156,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                   labelText: '活动类型',
                   border: OutlineInputBorder(),
                 ),
-                value: _selectedActivityType,
+                initialValue: _selectedActivityType,
                 hint: const Text('请选择活动类型'),
                 items: ['聚餐', '运动', '桌游', '其他']
                     .map((type) => DropdownMenuItem(

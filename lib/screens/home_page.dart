@@ -264,7 +264,7 @@ class _HomePageState extends State<HomePage> {
                         child: ActivityCardWidget(
                           // Provide default values in case of null
                           title: activity['title'] ?? '无标题活动',
-                          time: activityTime != null ? '${activityTime.toLocal()}': '未知时间', // Format time nicely
+                          time: '${activityTime.toLocal()}', // Format time nicely
                           location: activity['location'] ?? '未知地点',
                           imageUrl: activity['coverImageUrl'] ?? '', // Use coverImageUrl from PRD
                           organizerName: '未知组织者', // Placeholder - need to fetch organizer name
