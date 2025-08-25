@@ -15,7 +15,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _idNumberController = TextEditingController();
-  String _authenticationStatus = '等待提交认证信息';
+  final String _authenticationStatus = '等待提交认证信息';
 
   @override
   void dispose() {

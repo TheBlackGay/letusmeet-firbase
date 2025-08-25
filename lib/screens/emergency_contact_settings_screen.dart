@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class EmergencyContactSettingsScreen extends StatefulWidget {
-  const EmergencyContactSettingsScreen({Key? key}) : super(key: key);
+  const EmergencyContactSettingsScreen({super.key});
 
   @override
   _EmergencyContactSettingsScreenState createState() =>
@@ -80,6 +80,9 @@ class _EmergencyContactSettingsScreenState
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        // Dismiss any snackbars before showing a new one
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
       });
       try {
         final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -101,7 +104,7 @@ class _EmergencyContactSettingsScreenState
               .update({'emergencyContacts': contactsToSave});
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('紧急联系人保存成功！')),
+            const SnackBar(content: Text('紧急联系人保存成功！'), backgroundColor: Colors.green),
           );
           Navigator.of(context).pop(); // Navigate back after saving
 
@@ -109,7 +112,7 @@ class _EmergencyContactSettingsScreenState
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('保存紧急联系人失败：$e')),
-        );
+);
       } finally {
         setState(() {
           _isLoading = false;
@@ -149,13 +152,17 @@ class _EmergencyContactSettingsScreenState
                               ),
                               validator: (value) {
                                 // Optional validation: require both name and phone if one is filled
-                                if ((value?.isNotEmpty ?? false) &&
+                                // Basic check: if either field has content, the other should also have content
+                                if ((value?.isNotEmpty == true) &&
                                     (_phoneControllers[index].text.isEmpty)) {
                                   return '请填写电话号码';
                                 }
-                                if ((value?.isEmpty ?? false) &&
+                                if ((value?.isEmpty == true) &&
                                     (_phoneControllers[index].text.isNotEmpty)) {
                                    return '请填写姓名';
+                                }
+                                if ((value?.isNotEmpty == true) && (_phoneControllers[index].text.isNotEmpty)) {
+                                  // Add more specific name validation if needed later
                                 }
                                 return null;
                               },
@@ -169,14 +176,18 @@ class _EmergencyContactSettingsScreenState
                               ),
                               keyboardType: TextInputType.phone,
                               validator: (value) {
-                                // Optional validation: require both name and phone if one is filled
-                                if ((value?.isNotEmpty ?? false) &&
+                                // Basic check: if either field has content, the other should also have content
+                                if ((value?.isNotEmpty == true) &&
                                     (_nameControllers[index].text.isEmpty)) {
                                   return '请填写姓名';
                                 }
-                                if ((value?.isEmpty ?? false) &&
+                                if ((value?.isEmpty == true) &&
                                     (_nameControllers[index].text.isNotEmpty)) {
                                    return '请填写电话号码';
+                                }
+                                // Basic phone number format check (can be more comprehensive)
+                                if ((value?.isNotEmpty == true) && !RegExp(r'^[0-9]+$').hasMatch(value!)) {
+                                  return '请输入有效的电话号码';
                                 }
                                 return null;
                               },
@@ -186,7 +197,10 @@ class _EmergencyContactSettingsScreenState
                       );
                     } else {
                       return ElevatedButton(
-                        onPressed: _saveEmergencyContacts,
+                        onPressed: _isLoading ? null : _saveEmergencyContacts,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('保存'),
                         child: const Text('保存'),
                       );
                     }

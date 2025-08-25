@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/activity_card_widget.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -14,18 +14,16 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   // Method to refresh activities
   Future<void> _refreshActivities() async {
-    Completer<void> completer = Completer<void>();
-    // This will automatically trigger a rebuild of the StreamBuilder
-    // when the data changes in Firestore. For simple pull-to-refresh
-    // in a StreamBuilder, you don't need to explicitly re-fetch data
-    // unless your stream logic is more complex (e.g., fetching a limited set).
-    // Completing the completer will signal the RefreshIndicator to stop.
-    completer.complete();
-    return completer.future;
+    // When using pagination, a pull-to-refresh should ideally refetch the first page
+    // and clear the existing data.
+    setState(() {
+      _activities.clear();
+      _lastDocument = null;
+    });
+    await _fetchFirstPage();
   }
-
   // State variables for filtering and sorting
-  List<String> _selectedActivityTypes = []; // To store selected activity types
+  final List<String> _selectedActivityTypes = []; // To store selected activity types
   String _selectedSortOption = 'dateDescending'; // Default sort option: date descending
   void _showFilterSortBottomSheet() {
     showModalBottomSheet(
@@ -60,6 +58,9 @@ class _HomePageState extends State<HomePage> {
                         } else {
                           _selectedActivityTypes.remove(type);
                         }
+                        // When filter changes, reset pagination and fetch first page
+                        _activities.clear();
+                        _lastDocument = null;
                       });
                     },
                   );
@@ -82,6 +83,9 @@ class _HomePageState extends State<HomePage> {
                       if (value != null) {
                         setState(() {
                           _selectedSortOption = value;
+                          // When sort changes, reset pagination and fetch first page
+                          _activities.clear();
+                          _lastDocument = null;
                         });
                       }
                     },
@@ -94,6 +98,9 @@ class _HomePageState extends State<HomePage> {
                       if (value != null) {
                         setState(() {
                           _selectedSortOption = value;
+                          // When sort changes, reset pagination and fetch first page
+                          _activities.clear();
+                          _lastDocument = null;
                         });
                       }
                     },
@@ -102,11 +109,91 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 16.0),
               // Close button
+              Center(
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Trigger fetching the first page with new filters/sort
+                    // This is already handled in the setState callbacks of the filters/sort options.
+                    // We can just close the bottom sheet here.
+                    Navigator.pop(context);
+                  },
+                  child: const Text('确定'),
+                ),
+              ),
+              const SizedBox(height: 8.0), // Add some space at the bottom
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消')),
+              )
             ],
           ),
         );
       },
     );
+  }
+
+  final _scrollController = ScrollController();
+  final int _pageSize = 10; // Define your page size
+  List<DocumentSnapshot> _activities = []; // To store fetched documents
+  bool _isFetchingMore = false;
+  DocumentSnapshot? _lastDocument; // To store the last document of the previous page
+  StreamSubscription? _activitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _fetchFirstPage(); // Fetch the first page on init
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _activitySubscription?.cancel(); // Cancel the subscription
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent && !_isFetchingMore) {
+      // User has scrolled to the bottom and we are not already fetching
+      _fetchMoreActivities();
+    }
+  }
+
+  Future<void> _fetchFirstPage() async {
+     _activitySubscription?.cancel(); // Cancel previous subscription
+
+    Query query = FirebaseFirestore.instance.collection('activities');
+
+    // Apply filtering based on selected activity types
+    if (_selectedActivityTypes.isNotEmpty) {
+      query = query.where('type', whereIn: _selectedActivityTypes);
+    }
+
+    // Apply sorting
+    if (_selectedSortOption == 'dateDescending') {
+      query = query.orderBy('startTime', descending: true);
+    } else if (_selectedSortOption == 'dateAscending') {
+      query = query.orderBy('startTime', descending: false);
+    } else {
+       // Default sorting if no specific option is selected
+       query = query.orderBy('startTime', descending: true);
+    }
+
+    query = query.limit(_pageSize);
+
+    _activitySubscription = query.snapshots().listen((querySnapshot) {
+        setState(() {
+            _activities = querySnapshot.docs;
+            if (querySnapshot.docs.isNotEmpty) {
+                _lastDocument = querySnapshot.docs.last;
+            } else {
+                _lastDocument = null;
+            }
+        });
+    });
   }
 
   @override
@@ -139,31 +226,120 @@ class _HomePageState extends State<HomePage> {
       body: Column(
         children: [
           // Placeholder for filtering/sorting UI elements
-          // We might remove this later if using a bottom sheet for options
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Text('筛选占位符'),
-                Text('排序占位符'),
-              ],
-            ),
-          ),
+          // We are using a bottom sheet for options, so this can be removed or used for displaying current filters
+
           Expanded(
             // Placeholder for the activity list
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('activities')
-                  .where('type', whereIn: _selectedActivityTypes.isNotEmpty ? _selectedActivityTypes : null) // Apply filter if types are selected
-                  .orderBy('date', descending: _selectedSortOption == 'dateDescending') // Apply sorting by date
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+            child: _activities.isEmpty && _lastDocument == null && !_isFetchingMore
+                ? const Center(child: CircularProgressIndicator()) // Show loading on initial fetch
+                : _activities.isEmpty && _lastDocument == null && _isFetchingMore
+                  ? const Center(child: Text('No activities found.')) // Show message if no activities after initial fetch
+                  : RefreshIndicator(
+                  onRefresh: _refreshActivities,
+                  child: ListView.builder(
+                    controller: _scrollController, // Attach scroll controller
+                    itemCount: _activities.length + (_isFetchingMore ? 1 : 0), // Add 1 for loading indicator
+                    itemBuilder: (context, index) {
+                      if (index == _activities.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ); // Loading indicator at the bottom
+                      }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                      var activity = _activities[index].data() as Map<String, dynamic>;
+                      var activityId = _activities[index].id; // Get the document ID
+                      // Use try-catch or null checks for safety when accessing data
+                      var startTime = activity['startTime'] as Timestamp?;
+                      DateTime? activityTime = startTime?.toDate();
+
+                      return InkWell( // Use InkWell for tap effect
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/activity_detail',
+                            arguments: activityId, // Pass the activity ID as an argument
+                          );
+                        },
+                        child: ActivityCardWidget(
+                          // Provide default values in case of null
+                          title: activity['title'] ?? '无标题活动',
+                          time: activityTime != null ? '${activityTime.toLocal()}': '未知时间', // Format time nicely
+                          location: activity['location'] ?? '未知地点',
+                          imageUrl: activity['coverImageUrl'] ?? '', // Use coverImageUrl from PRD
+                          organizerName: '未知组织者', // Placeholder - need to fetch organizer name
+                          currentParticipants: activity['currentParticipantsCount'] ?? 0, // Use currentParticipantsCount from PRD
+                          maxParticipants: activity['maxParticipants'] ?? 0, // Use maxParticipants from PRD
+                        ),
+                      );
+                    },
+                  ),
+                ),
+          ),
+           // Show initial loading outside the list if _activities is empty
+           if (_activities.isEmpty && _lastDocument == null && !_isFetchingMore)
+              const Center(child: CircularProgressIndicator()),
+           // Show "No activities found" message if _activities is empty and not fetching more
+           if (_activities.isEmpty && !_isFetchingMore && _lastDocument != null) // Check if initial fetch is done but no activities
+              const Center(child: Text('No activities found.')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchMoreActivities() async {
+    if (_isFetchingMore || _lastDocument == null) return;
+
+    setState(() {
+      _isFetchingMore = true;
+    });
+
+    Query query = FirebaseFirestore.instance.collection('activities');
+
+    // Apply filtering
+    if (_selectedActivityTypes.isNotEmpty) {
+      query = query.where('type', whereIn: _selectedActivityTypes);
+    }
+
+    // Apply sorting
+    if (_selectedSortOption == 'dateDescending') {
+      query = query.orderBy('startTime', descending: true);
+    } else if (_selectedSortOption == 'dateAscending') {
+      query = query.orderBy('startTime', descending: false);
+    } else {
+      // Default sorting if no specific option is selected
+      query = query.orderBy('startTime', descending: true);
+    }
+
+    query = query.startAfterDocument(_lastDocument!) // Start after the last document
+        .limit(_pageSize);
+
+    try {
+      final querySnapshot = await query.get();
+
+      setState(() {
+        _activities.addAll(querySnapshot.docs);
+        if (querySnapshot.docs.isNotEmpty) {
+          _lastDocument = querySnapshot.docs.last;
+        } else {
+          _lastDocument = null; // No more data
+        }
+        _isFetchingMore = false;
+      });
+    } catch (e) {
+       // Handle errors during fetching more activities
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Error fetching more activities: ${e.toString()}')),
+       );
+      setState(() {
+        _isFetchingMore = false;
+      });
+    }
+  }
+}
+
+
+                  return Center(child = CircularProgressIndicator());
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -172,8 +348,8 @@ class _HomePageState extends State<HomePage> {
 
                 // Display the list of activities
                 return RefreshIndicator(
-                  onRefresh: _refreshActivities,
-                  child: ListView.builder(
+                  onRefresh = _refreshActivities,
+                  child = ListView.builder(
                     itemCount: snapshot.data!.docs.length,
                     itemBuilder: (context, index) {
                       var activity = snapshot.data!.docs[index].data() as Map<String, dynamic>;

@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
 class ActivityCardWidget extends StatelessWidget {
-  const ActivityCardWidget({Key? key}) : super(key: key);
-  final String title;
-  final String time;
-  final String location;
   final String imageUrl;
   final String organizerName;
   final int currentParticipants;
   final int maxParticipants;
 
   const ActivityCardWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.time,
     required this.location,
@@ -19,7 +15,7 @@ class ActivityCardWidget extends StatelessWidget {
     required this.organizerName,
     required this.currentParticipants,
     required this.maxParticipants,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +29,7 @@ class ActivityCardWidget extends StatelessWidget {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
+          children: [
             // Placeholder for Activity Image
             ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
@@ -52,25 +48,25 @@ class ActivityCardWidget extends StatelessWidget {
             const SizedBox(height: 8.0),
             // Activity Title
             Text(
-              title,
+              '活动标题 Placeholder', // Replace with actual title data
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4.0),
             // Activity Time
             Text(
-              '时间: $time',
+              '时间: Placeholder', // Replace with actual time data
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 4.0),
             // Activity Location
             Text(
-              '地点: $location',
+              '地点: Placeholder', // Replace with actual location data
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8.0),
             // Placeholder for other details like organizer, participants, tags, etc.
-            Row(
-              children: <Widget>[
+             Row(
+              children:  <Widget>[
                 Text(
                   '组织者: $organizerName',
                   style: Theme.of(context).textTheme.bodySmall,
@@ -78,9 +74,7 @@ class ActivityCardWidget extends StatelessWidget {
                 const Spacer(), // Pushes the participant count to the right
                 Text(
                   '已报名: $currentParticipants / $maxParticipants',
-                  style: Theme.of(context).textTheme.bodySmall,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).primaryColor),
-                ),
               ],
             ),
           ],

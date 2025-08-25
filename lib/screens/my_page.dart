@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '/lib/widgets/activity_card_widget.dart';
-import '/lib/screens/emergency_contact_settings_screen.dart';
-import '/lib/screens/activity_detail_screen.dart';
+import 'package:myapp/lib/widgets/activity_card_widget.dart';
+import 'package:myapp/lib/screens/emergency_contact_settings_screen.dart';
+import 'package:myapp/lib/screens/activity_detail_screen.dart';
 
 class MyPage extends StatefulWidget { // Convert MyPage to StatefulWidget
   const MyPage({super.key});
@@ -75,7 +75,9 @@ class _MyPageState extends State<MyPage> {
                   ],
                 ),
                 // Placeholder for Navigation Options
-                ListTile(
+                Card( // Wrap ListTile in Card for better visual separation
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: ListTile(
                   leading: const Icon(Icons.event_note), // Added leading icon
                   title: const Text('我的报名'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16), // Added trailing icon
@@ -84,17 +86,18 @@ class _MyPageState extends State<MyPage> {
                   },
                 ),
                 const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.settings),
- title: const Text('紧急联系人设置'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
- Navigator.of(context).push(
- MaterialPageRoute(builder: (context) => const EmergencyContactSettingsScreen()),
- );
-                  },
-
-                const SizedBox(height: 24),
+                Card( // Wrap ListTile in Card for better visual separation
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: ListTile(
+                    leading: const Icon(Icons.contact_phone), // Changed icon to match PRD
+                    title: const Text('紧急联系人设置'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const EmergencyContactSettingsScreen()),
+                      );
+                    },
+                  )),
                 Text(
                   '我参与的活动',
                   style: Theme.of(context).textTheme.titleLarge,
